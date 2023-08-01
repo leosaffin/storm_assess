@@ -1,0 +1,10 @@
+[project]
+name = "storm-assess"
+version = "0.0.2"
+dependencies = [
+  "numpy",
+  "cartopy",
+  "netcdf4",
+  "netcdftime",
+  "scitools-iris",
+]
