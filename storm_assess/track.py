@@ -13,17 +13,11 @@ the data file and include the variables in the 'extras' dictionary.
 
 
 """
-import os.path
+
 import datetime
 import netcdftime
 
 import storm_assess
-
-# Set path for sample model data
-SAMPLE_DATA_PATH = os.path.join(os.path.dirname(__file__), 'sample_data')
-
-SAMPLE_TRACK_DATA = os.path.join(SAMPLE_DATA_PATH, 
-                                 'combined_ff_trs.vor_10m_fullgrid_N512_xgxqe_L5.new_20002011.date')
 
 
 def load(fh, ex_cols=0, calendar=None):
@@ -188,7 +182,7 @@ def load(fh, ex_cols=0, calendar=None):
 
 
 if __name__ == '__main__':
-    fname = os.path.join(SAMPLE_TRACK_DATA)
+    fname = storm_assess.SAMPLE_TRACK_DATA
     print('Loading TRACK data from file:' , fname)    
     storms = list(load(fname, ex_cols=3, calendar='netcdftime'))
     print('Number of model storms: ', len(storms))

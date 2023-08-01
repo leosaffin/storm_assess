@@ -10,7 +10,8 @@ import shapely.geometry as sgeom
 from netCDF4 import num2date, date2num
 
 # Set path for sample model data
-SAMPLE_DATA_PATH = os.path.join(os.path.dirname(__file__), 'sample_data')
+SAMPLE_DATA_PATH = os.path.join(os.path.dirname(__file__), '../tests/')
+SAMPLE_TRACK_DATA = os.path.join(SAMPLE_DATA_PATH, 'combined_ff_trs.vor_10m_fullgrid_N512_xgxqe_L5.new_20002011.date')
 
 # Set path for tracking output (this is the central repository)
 TRACK_DIR = '/project/seasonal/hadjn/TRACK/TCTRACK_DATA_vn1.40/results/'
@@ -19,7 +20,7 @@ FEREDAY_DIR = '/project/seasonal/hadjn/fereday_vorticity/'
 
 """ Store model storm observations as a named tuple (this enables access to data by its 
 name instead of position index) """
-Observation = collections.namedtuple('Observation', ['date', 'lat', 'lon', 'vort', 'vmax', 
+Observation = collections.namedtuple('Observation', ['date', 'lat', 'lon', 'vort', 'vmax',
                                                      'mslp', 'extras'])
 
 class Observation(Observation):
