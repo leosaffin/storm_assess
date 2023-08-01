@@ -17,7 +17,7 @@ import os.path
 import datetime
 import netcdftime
 
-import storm_assess_py3 as storm_assess
+import storm_assess
 
 # Set path for sample model data
 SAMPLE_DATA_PATH = os.path.join(os.path.dirname(__file__), 'sample_data')
