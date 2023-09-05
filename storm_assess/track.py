@@ -16,8 +16,121 @@ the data file and include the variables in the 'extras' dictionary.
 
 import datetime
 import netcdftime
+import numpy as np
+import xarray
+
+from parse import parse
 
 import storm_assess
+
+# Use align specifications (^, <, >) to allow variable whitespace in headers
+# Left aligned (<) for "nvars" so nfields takes all whitespace between in case there is
+# only one space
+# Right aligned (>) for variables at the end since lines are stripped of whitespace
+# prior to parsing
+header_fmt = "TRACK_NUM{ntracks:^d}ADD_FLD{nfields:^d}{nvars:<d}&{var_has_coords}"
+track_header_fmt = "TRACK_ID{track_id:>d}"
+track_header_fmt_new = "TRACK_ID{track_id:^d}START_TIME{start_time:>}"
+track_info_fmt = "POINT_NUM{npoints:>d}"
+
+
+def _parse(fmt, string, **kwargs):
+    # Call parse but raise an error if None is returned
+    result = parse(fmt, string, **kwargs)
+
+    if result is None:
+        raise ValueError(f"Format {fmt} does not match string {string}")
+
+    return result
+
+
+def load_no_assumptions(filename, calendar=None):
+    """Load track data as xarray Datasets with generic names for added variables
+
+    Args:
+        filename (str):
+        calendar (str, optional):
+
+    Returns:
+        list:
+    """
+    output = list()
+
+    with open(filename, "r") as f:
+        # The first lines can contain extra information bounded by two extra lines
+        # Just skip to the main header line for now
+        line = ""
+        while not line.startswith('TRACK_NUM'):
+            line = f.readline().strip()
+
+        # Load information about tracks from header line
+        # If there are no added variables the line ends at the "&"
+        try:
+            header = _parse(header_fmt, line).named
+        except ValueError:
+            header = _parse(header_fmt.split("&")[0] + "&", line).named
+            header["var_has_coords"] = ""
+
+        ntracks = header["ntracks"]
+        nfields = header["nfields"]
+        nvars = header["nvars"]
+        has_coords = [int(x) == 1 for x in header["var_has_coords"]]
+
+        # Check header data is consistent
+        assert len(has_coords) == nfields
+        assert sum([3 if x == 1 else 1 for x in has_coords]) == nvars
+
+        # Create a list of variables stored in each track
+        # Generic names for variables as there is currently no information otherwise
+        var_labels = ["longitude", "latitude", "vorticity"]
+        for n in range(nfields):
+            if has_coords[n]:
+                var_labels.append(f"feature_{n}_longitude")
+                var_labels.append(f"feature_{n}_latitude")
+            var_labels.append(f"feature_{n}")
+
+        # Read in each track as an xarray dataset with time as the coordinate
+        for n in range(ntracks):
+            # Read individual track header (two lines)
+            line = f.readline().strip()
+            try:
+                track_info = _parse(track_header_fmt, line).named
+            except ValueError:
+                track_info = _parse(track_header_fmt_new, line).named
+                track_info["start_time"] = parse_date(
+                    track_info["start_time"], calendar=calendar
+                )
+
+            line = f.readline().strip()
+            npoints = _parse(track_info_fmt, line)["npoints"]
+
+            # Generate arrays for time coordinate and variables
+            # Time is a list because it will hold datetime or netcdftime objects
+            # Other variables are a dictionary mapping variable name to a tuple of
+            # (time, data_array) as this is what is passed to xarray.Dataset
+            times = [None] * npoints
+            track_data = {label: ("time", np.zeros(npoints)) for label in var_labels}
+
+            # Populate time and data line by line
+            for m in range(npoints):
+                line = f.readline().strip().split("&")
+                time, lon, lat, vorticity = line[0].split()
+                times[m] = parse_date(time, calendar=calendar)
+                track_data["longitude"][1][m] = float(lon)
+                track_data["latitude"][1][m] = float(lat)
+                track_data["vorticity"][1][m] = float(vorticity)
+
+                for i, label in enumerate(var_labels[3:]):
+                    track_data[label][1][m] = float(line[i+1])
+
+            # Return a dataset for the individual track
+            output.append(xarray.Dataset(
+                track_data,
+                coords=dict(time=times),
+                attrs=track_info,
+            ))
+
+    return output
 
 
 def load(fh, ex_cols=0, calendar=None):
@@ -108,18 +221,6 @@ def load(fh, ex_cols=0, calendar=None):
                     # Get observation date and T42 lat lon location in case higher 
                     # resolution data are not available
                     date, tmp_lon, tmp_lat, vort = split_line[0].split()
-                    
-                    if len(date) == 10: # i.e., YYYYMMDDHH
-                        if calendar == 'netcdftime':
-                            yr = int(date[0:4])
-                            mn = int(date[4:6])
-                            dy = int(date[6:8])
-                            hr = int(date[8:10])
-                            date = netcdftime.datetime(yr, mn, dy, hour=hr)
-                        else:
-                            date = datetime.datetime.strptime(date.strip(), '%Y%m%d%H')
-                    else:
-                        date = int(date)
 
                     # Get storm location of maximum vorticity (full resolution field)
                     #lat = float(split_line[::-1][8+ex_cols])
@@ -181,16 +282,15 @@ def load(fh, ex_cols=0, calendar=None):
                 yield storm_assess.Storm(snbr, storm_obs, extras={})
 
 
-if __name__ == '__main__':
-    fname = storm_assess.SAMPLE_TRACK_DATA
-    print('Loading TRACK data from file:' , fname)    
-    storms = list(load(fname, ex_cols=3, calendar='netcdftime'))
-    print('Number of model storms: ', len(storms))
-    
-    # Print storm details:
-    for storm in storms: 
-        #print storm.snbr, storm.genesis_date()
-        for ob in storm.obs:
-            print(ob.date, ob.lon, ob.lat, ob.vmax, ob.extras['vmax_kts'], ob.mslp, ob.vort)
-    print('Number of model storms: ', len(storms)) 
-
+def parse_date(date, calendar=None):
+    if len(date) == 10:  # i.e., YYYYMMDDHH
+        if calendar == "netcdftime":
+            yr = int(date[0:4])
+            mn = int(date[4:6])
+            dy = int(date[6:8])
+            hr = int(date[8:10])
+            return netcdftime.datetime(yr, mn, dy, hour=hr)
+        else:
+            return datetime.datetime.strptime(date.strip(), "%Y%m%d%H")
+    else:
+        return int(date)
