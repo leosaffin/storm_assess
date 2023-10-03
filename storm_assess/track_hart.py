@@ -16,10 +16,8 @@ Notes:
       To store these values, amend the 'extras' dictionary.
 """
 
-import datetime
-import netcdftime
-
 import storm_assess
+from storm_assess.track import parse_date
 
 
 # Load TRACK file
@@ -96,18 +94,7 @@ def load(fh, ex_cols=0, calendar=None):
                     # get observation date, T63 lat & lon, and vort
                     # (in case higher resolution data are not available)
                     date, lon, lat, vort = split_line[0].split()
-                    
-                    if len(date) == 10: # i.e., YYYYMMDDHH
-                        if calendar == 'netcdftime':
-                            yr = int(date[0:4])
-                            mn = int(date[4:6])
-                            dy = int(date[6:8])
-                            hr = int(date[8:10])
-                            date = netcdftime.datetime(yr, mn, dy, hour=hr)
-                        else:
-                            date = datetime.datetime.strptime(date.strip(), '%Y%m%d%H')
-                    else:
-                        date = int(date)
+                    date = parse_date(date, calendar)
 
                     # get full resolution 850 hPa maximum vorticity (s-1)
                     vort = float(vort)

@@ -14,10 +14,8 @@ the data file and include the variables in the 'extras' dictionary.
 
 """
 
-import datetime
-import netcdftime
-
 import storm_assess
+from storm_assess.track import parse_date
 
 
 def load(fh, ex_cols=0, calendar=None):
@@ -71,17 +69,7 @@ def load(fh, ex_cols=0, calendar=None):
                     # resolution data are not available
                     date, tmp_lon, tmp_lat, _ = split_line[0].split()
                     
-                    if len(date) == 10: # i.e., YYYYMMDDHH
-                        if calendar == 'netcdftime':
-                            yr = int(date[0:4])
-                            mn = int(date[4:6])
-                            dy = int(date[6:8])
-                            hr = int(date[8:10])
-                            date = netcdftime.datetime(yr, mn, dy, hour=hr)
-                        else:
-                            date = datetime.datetime.strptime(date.strip(), '%Y%m%d%H')
-                    else:
-                        date = int(date)
+                    date = parse_date(date, calendar)
 
                     # Get full resolution mslp
                     mslp = split_line[::-1][4+ex_cols]

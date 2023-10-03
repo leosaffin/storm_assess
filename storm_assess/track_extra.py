@@ -14,8 +14,6 @@ the data file and include the variables in the 'extras' dictionary.
 
 """
 
-import datetime
-import netcdftime
 import storm_assess
 import collections
 
