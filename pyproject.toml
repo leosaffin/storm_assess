@@ -5,6 +5,6 @@ dependencies = [
   "numpy",
   "cartopy",
   "netcdf4",
-  "netcdftime",
+  "cftime",
   "scitools-iris",
 ]

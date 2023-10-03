@@ -97,14 +97,8 @@ class Storm(object):
         date2=date2num(date2,units='hours since 1970-01-01 00:00:00',calendar=calendar)
         return date2-date1
 
-    def step_of_min_mslp(self,calendar='360_day'):
-        date1=self.genesis_date()
-        date2=self.time_of_min_mslp()
-        from netcdftime import utime
-        cdftime = utime('hours since 0001-01-01 00:00:00')
-        date1=cdftime.date2num(date1)#,units='hours since 1970-01-01 00:00:00',calendar=calendar)
-        date2=cdftime.date2num(date2)#,units='hours since 1970-01-01 00:00:00',calendar=calendar)
-        return int((date2-date1)/6)
+    def step_of_min_mslp(self, calendar='360_day'):
+        return int(self.time_of_min_mslp() - self.genesis_date() / datetime.timedelta(hours=6))
 
     def step_of_max_vort(self,calendar='360_day'):
         date1=self.genesis_date()

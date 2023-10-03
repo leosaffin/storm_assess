@@ -15,7 +15,7 @@ the data file and include the variables in the 'extras' dictionary.
 """
 
 import datetime
-import netcdftime
+import cftime
 import numpy as np
 import xarray
 
@@ -105,7 +105,7 @@ def load_no_assumptions(filename, calendar=None):
             npoints = _parse(track_info_fmt, line)["npoints"]
 
             # Generate arrays for time coordinate and variables
-            # Time is a list because it will hold datetime or netcdftime objects
+            # Time is a list because it will hold datetime or cftime objects
             # Other variables are a dictionary mapping variable name to a tuple of
             # (time, data_array) as this is what is passed to xarray.Dataset
             times = [None] * npoints
@@ -221,6 +221,7 @@ def load(fh, ex_cols=0, calendar=None):
                     # Get observation date and T42 lat lon location in case higher 
                     # resolution data are not available
                     date, tmp_lon, tmp_lat, vort = split_line[0].split()
+                    date = parse_date(date, calendar)
 
                     # Get storm location of maximum vorticity (full resolution field)
                     #lat = float(split_line[::-1][8+ex_cols])
@@ -289,7 +290,7 @@ def parse_date(date, calendar=None):
             mn = int(date[4:6])
             dy = int(date[6:8])
             hr = int(date[8:10])
-            return netcdftime.datetime(yr, mn, dy, hour=hr)
+            return cftime.datetime(yr, mn, dy, hour=hr, calendar="360_day")
         else:
             return datetime.datetime.strptime(date.strip(), "%Y%m%d%H")
     else:
