@@ -44,6 +44,26 @@ def _parse(fmt, string, **kwargs):
     return result
 
 
+def load_netcdf(filename):
+    """Load track data from netCDF file into a list of xarray datasets
+
+    Args:
+        filename (str):
+
+    Returns:
+        list:
+    """
+    ds = xarray.open_dataset(filename)
+
+    output = []
+    for idx0, npoints in zip(ds.FIRST_PT.data, ds.NUM_PTS.data):
+        track_da = ds.sel(record=slice(idx0, idx0 + npoints))
+        track_da = track_da.drop_dims("tracks")
+        output.append(track_da)
+
+    return output
+
+
 def load_no_assumptions(filename, calendar=None):
     """Load track data as xarray Datasets with generic names for added variables
 
