@@ -13,6 +13,7 @@ the data file and include the variables in the 'extras' dictionary.
 
 
 """
+import gzip
 
 import datetime
 import cftime
@@ -76,7 +77,12 @@ def load_no_assumptions(filename, calendar=None):
     """
     output = list()
 
-    with open(filename, "r") as f:
+    if filename.split(".")[-1] == "gz":
+        open_func = gzip.open
+    else:
+        open_func = open
+
+    with open_func(filename, "rt") as f:
         # The first lines can contain extra information bounded by two extra lines
         # Just skip to the main header line for now
         line = ""
