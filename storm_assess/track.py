@@ -115,12 +115,15 @@ def save_netcdf(tracks, filename):
     new_tracks.to_netcdf(filename)
 
 
-def load_no_assumptions(filename, calendar=None):
+def load_no_assumptions(filename, calendar=None, variable_names=None):
     """Load track data as xarray Datasets with generic names for added variables
 
     Args:
         filename (str):
         calendar (str, optional):
+        variable_names(list, optional): A list of the names of additional variables
+            present in the file. If None, the variables will be named as variable_n, and
+            associated coordinates as variable_n_latitude/variable_n_longitude
 
     Returns:
         list:
@@ -206,7 +209,49 @@ def load_no_assumptions(filename, calendar=None):
                 attrs=track_info,
             ))
 
-    return output
+    if variable_names is not None:
+        return rename_tracks(output, variable_names)
+    else:
+        return output
+
+
+def rename_tracks(tracks, new_names):
+    """Add variable names to tracks loaded by load_no_assumptions
+
+    By default, load_no_assumptions will load TRACK files with additional variables just
+    labelled as "variable_n" and "variable_n_latitude"/"variable_n_longitude" if they
+    have associated coordinates. This function renames those variables to the names
+    passed in as new_names
+
+    Args:
+        tracks (list of xarray.Dataset): List of tracks with extra unknown variables
+        new_names (list of str): The list of new names with length equal to the number
+            of extra variables in the tracks
+
+    Returns:
+        list of xarray.Dataset: The input tracks with the variables renamed
+    """
+    # Extract variable names that need changing in the tracks
+    # Use the first track as it is assumed they have all come from the same set of
+    # data
+    # With load_no_assumptions the extra variables are listed as feature_n and if they
+    # have a lat/lon association, also feature_n_latitude and feature_n_longitude
+    to_rename = [var for var in list(tracks[0]) if "feature" in var]
+
+    # Map the variables that need renaming to the new names
+    mapping = dict()
+    for var in to_rename:
+        # Split into [variable, n, "longitude"/"latitude"]
+        elements = var.split("_")
+        new_name = new_names[int(elements[1])]
+        # If longitude/latitude is in the name, include it in the new name
+        if len(elements) > 2:
+            new_name += "_" + "_".join(elements[2:])
+
+        mapping[var] = new_name
+
+    # Rename all the tracks
+    return [tr.rename(mapping) for tr in tracks]
 
 
 def load(fh, ex_cols=0, calendar=None):
