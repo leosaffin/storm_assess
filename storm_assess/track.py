@@ -60,9 +60,59 @@ def load_netcdf(filename):
     for idx0, npoints in zip(ds.FIRST_PT.data, ds.NUM_PTS.data):
         track_da = ds.sel(record=slice(idx0, idx0 + npoints))
         track_da = track_da.drop_dims("tracks")
+        track_da = track_da.swap_dims(record="time")
         output.append(track_da)
 
     return output
+
+
+def save_netcdf(tracks, filename):
+    """
+
+    Args:
+        tracks (list): A list of xarray.Dataset, each representing an individual track,
+             such as output from load_no_assumptions or load_netcdf
+        filename (str):
+    """
+    new_tracks = []
+
+    first_point = xarray.DataArray(
+        data=np.zeros(len(tracks), dtype=int),
+        dims=["tracks"],
+        coords=dict(tracks=np.arange(len(tracks), dtype=int)),
+        name="FIRST_PT",
+    )
+    num_pts = xarray.DataArray(
+        data=np.zeros(len(tracks), dtype=int),
+        dims=["tracks"],
+        coords=dict(tracks=np.arange(len(tracks), dtype=int)),
+        name="NUM_PTS",
+    )
+
+    idx = 0
+    for n, tr in enumerate(tracks):
+        first_point[n] = idx
+        num_pts[n] = len(tr.time)
+
+        record = xarray.DataArray(
+            data=np.array(range(idx, idx + len(tr.time))),
+            dims=["time"],
+            coords=dict(time=tr.time),
+        )
+
+        new_tr = tr.assign(record=record).swap_dims(time="record").reset_coords(names="time")
+
+        new_tracks.append(new_tr)
+
+        idx += len(tr.time)
+
+    new_tracks = xarray.concat(new_tracks, dim="record")
+    new_tracks = new_tracks.assign(FIRST_PT=first_point, NUM_PTS=num_pts)
+    new_tracks = new_tracks.drop_vars(names=["record", "tracks"])
+
+    new_tracks.attrs["start_time"] = str(new_tracks.attrs["start_time"])
+
+    new_tracks.to_netcdf(filename)
 
 
 def load_no_assumptions(filename, calendar=None):

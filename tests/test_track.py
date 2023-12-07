@@ -52,3 +52,15 @@ def test_load_no_assumptions():
     assert storms[-1].latitude[-1] == 12.903164
     assert storms[-1].vorticity[-1] == 3.415816e00
     # assert storms[-1].obs[-1].mslp == 1.008229e+05 / 100, 1)
+
+
+def test_save_netcdf():
+    storms = track.load_no_assumptions(storm_assess.SAMPLE_TRACK_DATA, calendar="netcdftime")
+    track.save_netcdf(storms, "test.nc")
+
+    storms_copy = track.load_netcdf("test.nc")
+
+    assert len(storms) == len(storms_copy)
+    for n in range(len(storms)):
+        for var in storms[n]:
+            assert (storms[n][var].data == storms_copy[n][var].data).all()
