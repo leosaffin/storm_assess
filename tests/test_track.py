@@ -1,3 +1,5 @@
+import pathlib
+
 import cftime
 
 import storm_assess
@@ -29,56 +31,41 @@ def test_load():
     assert storms[-1].obs[-1].mslp == float(round(1.008229e05 / 100, 1))
 
 
-def test_load_no_assumptions():
-    storms = track.load_no_assumptions(
-        storm_assess.SAMPLE_TRACK_DATA,
-        calendar="netcdftime",
-        variable_names=[
-            "vorticity_1",
-            "vorticity_2",
-            "vorticity_3",
-            "vorticity_4",
-            "vorticity_5",
-            "vorticity_6",
-            "vmax",
-            "mslp",
-            "v10m",
-        ],
-    )
-
-    assert len(storms) == 540
+def test_load_no_assumptions(storms_xarray):
+    assert len(storms_xarray) == 540
 
     # Check first and last points are correct
-    assert storms[0].attrs["track_id"] == 1
-    assert storms[0].attrs["start_time"] == storms[0].time[0].data[()]
-    assert len(storms[0].time) == 85
-    assert storms[0].time[0] == cftime.datetime(2000, 5, 6, calendar="360_day")
-    assert storms[0].longitude[0] == 285.375793
-    assert storms[0].latitude[0] == 22.385307
-    assert storms[0].vorticity[0] == 1.569625e00
-    assert storms[0].vmax[0] == 1.385634e+01
-    assert storms[0].mslp[0] == 1.016622e+05
-    assert storms[0].v10m[0] == 9.860207e+00
+    assert storms_xarray[0].attrs["track_id"] == 1
+    assert storms_xarray[0].attrs["start_time"] == storms_xarray[0].time[0].data[()]
+    assert len(storms_xarray[0].time) == 85
+    assert storms_xarray[0].time[0] == cftime.datetime(2000, 5, 6, calendar="360_day")
+    assert storms_xarray[0].longitude[0] == 285.375793
+    assert storms_xarray[0].latitude[0] == 22.385307
+    assert storms_xarray[0].vorticity[0] == 1.569625e00
+    assert storms_xarray[0].vmax[0] == 1.385634e+01
+    assert storms_xarray[0].mslp[0] == 1.016622e+05
+    assert storms_xarray[0].v10m[0] == 9.860207e+00
 
-    assert storms[-1].attrs["track_id"] == 30
-    assert storms[-1].attrs["start_time"] == storms[-1].time[0].data[()]
-    assert len(storms[-1].time) == 30
-    assert storms[-1].time[-1] == cftime.datetime(2011, 11, 21, 6, calendar="360_day")
-    assert storms[-1].longitude[-1] == 276.124756
-    assert storms[-1].latitude[-1] == 12.903164
-    assert storms[-1].vorticity[-1] == 3.415816e00
-    assert storms[-1].vmax[-1] == 8.001409e+00
-    assert storms[-1].mslp[-1] == 1.008229e+05
-    assert storms[-1].v10m[-1] == 1.000000e+12
+    assert storms_xarray[-1].attrs["track_id"] == 30
+    assert storms_xarray[-1].attrs["start_time"] == storms_xarray[-1].time[0].data[()]
+    assert len(storms_xarray[-1].time) == 30
+    assert storms_xarray[-1].time[-1] == cftime.datetime(2011, 11, 21, 6, calendar="360_day")
+    assert storms_xarray[-1].longitude[-1] == 276.124756
+    assert storms_xarray[-1].latitude[-1] == 12.903164
+    assert storms_xarray[-1].vorticity[-1] == 3.415816e00
+    assert storms_xarray[-1].vmax[-1] == 8.001409e+00
+    assert storms_xarray[-1].mslp[-1] == 1.008229e+05
+    assert storms_xarray[-1].v10m[-1] == 1.000000e+12
 
 
-def test_save_netcdf():
-    storms = track.load_no_assumptions(storm_assess.SAMPLE_TRACK_DATA, calendar="netcdftime")
-    track.save_netcdf(storms, "test.nc")
+def test_save_netcdf(storms_xarray):
+    track.save_netcdf(storms_xarray, "test.nc")
 
     storms_copy = track.load_netcdf("test.nc")
 
-    assert len(storms) == len(storms_copy)
-    for n in range(len(storms)):
-        for var in storms[n]:
-            assert (storms[n][var].data == storms_copy[n][var].data).all()
+    assert len(storms_xarray) == len(storms_copy)
+    for n in range(len(storms_xarray)):
+        for var in storms_xarray[n]:
+            assert (storms_xarray[n][var].data == storms_copy[n][var].data).all()
+
+    pathlib.Path("test.nc").unlink()
