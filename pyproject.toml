@@ -7,4 +7,5 @@ dependencies = [
   "netcdf4",
   "cftime",
   "scitools-iris",
+  "geopandas",
 ]
