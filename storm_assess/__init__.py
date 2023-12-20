@@ -3,19 +3,16 @@ import os.path
 import collections
 
 import datetime
-import fnmatch
 
 import cartopy.crs as ccrs
 import shapely.geometry as sgeom
-from netCDF4 import num2date, date2num
+from netCDF4 import date2num
+
+from storm_assess.functions import _get_time_range, _storms_in_time_range, _basin_polygon, _storm_in_basin
 
 # Set path for sample model data
 SAMPLE_DATA_PATH = os.path.join(os.path.dirname(__file__), '../tests/')
 SAMPLE_TRACK_DATA = os.path.join(SAMPLE_DATA_PATH, 'combined_ff_trs.vor_10m_fullgrid_N512_xgxqe_L5.new_20002011.date')
-
-# Set path for tracking output (this is the central repository)
-TRACK_DIR = '/project/seasonal/hadjn/TRACK/TCTRACK_DATA_vn1.40/results/'
-FEREDAY_DIR = '/project/seasonal/hadjn/fereday_vorticity/'
 
 
 """ Store model storm observations as a named tuple (this enables access to data by its 
@@ -173,31 +170,6 @@ def _boundary_segment(boundary, project=True):
     if project: 
         rbox = ccrs.PlateCarree().project_geometry(rbox, ccrs.PlateCarree())
     return rbox
-
-def _basin_polygon(basin, project=True):
-    #: Lat/lon locations of tracking regions for each ocean basin
-    TRACKING_REGION = {'na': ([-75, -20, -20, -80, -80, -100, -100, -75, -75], [0, 0, 60, 60, 40, 40, 20, 6, 0]),
-                       'midlat_na': ([-80, -58, -52, -62, -49, -12, -12, -80], [30, 43, 46, 60, 60, 63, 30, 30]),
-                       'midlat_np': ([136, 157, 165, -162, -136, -118, 136], [30, 50, 60, 60, 55, 30, 30]),
-                       'gulf_stream': ([-90,-90,-50,-50,-90],[30, 48, 48, 30, 30]),
-                       'gulf_stream_N': ([-90,-90,-50,-50,-90],[44, 54, 54, 44, 44]),
-                       #'ep': ([-140, -75, -75, -100, -100, -120, -120, -140, -140], [0, 0, 6, 20, 40, 40, 60, 60, 0]),
-                       'ep': ([-140, -75, -75, -100, -100, -140, -140], [0, 0, 6, 20, 30, 30, 0]),
-                       'wp': ([-260, -180, -180, -260, -260], [0, 0, 60, 60, 0]),
-                       #'wp': ([-260, -180, -180, -260, -260], [0, 0, 25, 25, 0]),
-                       'ni': ([-320, -260, -260, -320, -320], [0, 0, 30, 30, 0]),
-                       'si': ([-330, -270, -270, -330, -330], [-40, -40, 0, 0, -40]),
-                       'au': ([-270, -200, -200, -270, -270], [-40, -40, 0, 0, -40]),
-                       'sp': ([-200, -120, -120, -200, -200], [-40, -40, 0, 0, -40]),
-                       'sa': ([-90, 0, 0, -90, -90], [-40, -40, 0, 0, -40]),
-                       #'mdr': ([-80, -20, -20, -80, -80], [10, 10, 20, 20, 10])
-                       'mdr': ([-60, -20, -20, -60, -60], [10, 10, 20, 20, 10])
-                       }
-    
-    rbox = sgeom.Polygon(list(zip(*TRACKING_REGION.get(basin))))
-    if project: 
-        rbox = ccrs.PlateCarree().project_geometry(rbox, ccrs.PlateCarree())
-    return rbox
     
 def _obs_in_basin(storm, basin):
     """ Returns True if a storm track intersects a defined ocean basin """
@@ -249,16 +221,6 @@ def _storm_cross_boundary(storm, boundary):
         return True
     return False
 
-def _storm_in_basin(storm, basin):
-    """ Returns True if a storm track intersects a defined ocean basin """
-    rbox = _basin_polygon(basin)   
-    lons, lats = list(zip(*[(ob.lon, ob.lat) for ob in storm.obs])) 
-    track = sgeom.LineString(list(zip(lons, lats)))       
-    projected_track = ccrs.PlateCarree().project_geometry(track, ccrs.Geodetic())
-    if rbox.intersects(projected_track):
-        return True
-    return False
-
     
 def _storm_vmax_in_basin(storm, basin):
     """ Returns True if the maximum intensity of the storm occurred
@@ -299,33 +261,6 @@ def _storms_in_year_member_forecast(storms, years, members, fcst_dates):
             (storm.extras['member'] in members) and \
             (storm.extras['fcst_start_date'] in fcst_dates):
             yield storm
-             
-             
-def _get_time_range(year, months):
-    """ 
-    Creates a start and end date (a datetime.date timestamp) for a 
-    given year and a list of months. If the list of months overlaps into 
-    the following year (for example [11,12,1,2,3,4]) then the end date 
-    adds 1 to the original year 
-    
-    """
-    start_date = datetime.datetime(year, months[0], 1)
-    end_year = year
-    end_month = months[-1]+1
-    if months[-1]+1 < months[0] or months[-1]+1 == 13 or len(months) >= 12:
-        end_year = year+1
-    if months[-1]+1 == 13:
-        end_month = 1
-    end_date = datetime.datetime(end_year, end_month, 1)
-    return start_date, end_date
-                
-        
-def _storms_in_time_range(storms, year, months):
-    """Returns a generator of storms that formed during the desired time period """
-    start_date, end_date = _get_time_range(year, months)
-    for storm in storms:        
-        if (storm.genesis_date() >= start_date) and (storm.genesis_date() < end_date):
-            yield storm
             
             
 def _storms_in_basin_year_month_member_forecast(storms, basin, year, months, members, fcst_dates):
@@ -339,55 +274,7 @@ def _storms_in_basin_year_month_member_forecast(storms, basin, year, months, mem
            (storm.extras['fcst_start_date'] in fcst_dates) and \
             _storm_in_basin(storm, basin):
             yield storm
-            
-          
-#def _tracking_file_exists(start_date, year, member, hemisphere):
-#    """ 
-#    Searches for a filename with a given forecast start date, year
-#    and ensemble member number. Returns True if file is found.
-#    
-#    """
-#    for root, dirs, files in os.walk(TRACK_DIR):
-#        for file in files:
-#            fname = os.path.join(root, file)
-#            if os.path.isfile(fname):
-#                if fnmatch.fnmatch(fname, 
-#                                   '%sff_trs.vor_fullgrid_wind_mslp_L5.new.%s_%s_%s.%s.date' % 
-#                                   (TRACK_DIR, str(year), start_date, member, hemisphere)
-#                                   ):
-#                    return True
-             
-def _tracking_file_exists(fcst_date, year, member, hemisphere, 
-                          model='glosea5', file_type='tropical'):
-    """ 
-    Searches for a filename with a given forecast start date, year
-    and ensemble member number. Returns True if file is found.
-    
-    """
-    tracking_dir = TRACK_DIR + model
-    
-    for root, dirs, files in os.walk(tracking_dir):
-        for file in files:
-            fname = os.path.join(root, file)
-            if os.path.isfile(fname):
-                if fnmatch.fnmatch(fname, 
-                    '%s/ff_trs.vor_fullgrid_wind_mslp_L5.new.%s.%s_%s_%s.%s.date' % 
-                    (tracking_dir, file_type, str(year), fcst_date, 
-                     member, hemisphere)):
-                    return True
-                
-                
-def ensemble_count(years, fcst_dates, members, hemisphere, file_type='tropical'):
-    """ Returns number of individual tracking files available for a given 
-    set of forecast dates, ensemble members and years """
-    count  = 0
-    for year in years:
-        for fcst_date in fcst_dates:
-            for member in members:
-                if _tracking_file_exists(fcst_date, year, member, 
-                                         hemisphere, file_type=file_type):
-                    count += 1
-    return count
+
 
 def lon_lat_to_distance(pos1, pos2):
     lon1, lat1 = pos1
