@@ -8,4 +8,5 @@ dependencies = [
   "cftime",
   "scitools-iris",
   "geopandas",
+  "haversine",
 ]

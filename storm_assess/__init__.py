@@ -1,9 +1,9 @@
 import numpy as np
 import os.path
 import collections
-
 import datetime
 
+from haversine import haversine
 import cartopy.crs as ccrs
 import shapely.geometry as sgeom
 from netCDF4 import date2num
@@ -276,19 +276,12 @@ def _storms_in_basin_year_month_member_forecast(storms, basin, year, months, mem
             yield storm
 
 
-def lon_lat_to_distance(pos1, pos2):
+def lon_lat_to_distance(pos1, pos2, units="m"):
     lon1, lat1 = pos1
     lon2, lat2 = pos2
-    fac=np.pi/180.
-    R = 6371.e3
-    phi1 = lat1*fac
-    phi2 = lat2*fac
-    delta_phi = (lat2-lat1)*fac
-    delta_lambda = (lon2-lon1)*fac
-    a = np.sin(delta_phi/2.) * np.sin(delta_phi/2.) + np.cos(phi1) * np.cos(phi1) * np.sin(delta_lambda/2.) * np.sin(delta_lambda/2.) 
-    c = 2. * np.arctan2(np.sqrt(a), np.sqrt(1-a));
-    d = R * c;
-    return d 
+
+    return haversine([lat1, lon1], [lat2, lon2], unit=units)
+
 
 def lon_lat_to_azimuth(pos1, pos2):
     lon1, lat1 = pos1
