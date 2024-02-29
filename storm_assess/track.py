@@ -18,6 +18,7 @@ import gzip
 import datetime
 import cftime
 import numpy as np
+import pandas as pd
 import xarray
 
 from parse import parse
@@ -56,11 +57,30 @@ def load_netcdf(filename):
     """
     ds = xarray.open_dataset(filename)
 
+    # For some reason indexing included the "end" value in a slice if I don't drop these
+    # variables first
+    # e.g. ds.sel(record=slice(0, 10)) gives an dataset with 11 records rather than 10
+    # I think it matches the numbers rather than the index so includes 10 as a match
+    ds = ds.drop_vars(names=["tracks", "record"])
+
     output = []
-    for idx0, npoints in zip(ds.FIRST_PT.data, ds.NUM_PTS.data):
-        track_da = ds.sel(record=slice(idx0, idx0 + npoints))
-        track_da = track_da.drop_dims("tracks")
+    for n, (idx0, npoints) in enumerate(zip(ds.FIRST_PT.data, ds.NUM_PTS.data)):
+        track_da = ds.sel(record=slice(idx0, idx0 + npoints), tracks=n)
         track_da = track_da.swap_dims(record="time")
+        track_da = track_da.drop_vars(names=["FIRST_PT", "NUM_PTS"])
+
+        # Change scalar variables to attributes
+        to_drop = []
+        for varname in track_da:
+            variable = track_da[varname]
+            if variable.shape == ():
+                if np.issubdtype(variable.dtype, np.datetime64):
+                    track_da.attrs[varname] = pd.to_datetime(variable.data)
+                else:
+                    track_da.attrs[varname] = variable.data[()]
+                to_drop.append(varname)
+        track_da = track_da.drop_vars(names=to_drop)
+
         output.append(track_da)
 
     return output
@@ -106,11 +126,18 @@ def save_netcdf(tracks, filename):
 
         idx += len(tr.time)
 
-    new_tracks = xarray.concat(new_tracks, dim="record")
-    new_tracks = new_tracks.assign(FIRST_PT=first_point, NUM_PTS=num_pts)
-    new_tracks = new_tracks.drop_vars(names=["record", "tracks"])
+    new_tracks = xarray.concat(new_tracks, dim="record", combine_attrs="drop_conflicts")
 
-    new_tracks.attrs["start_time"] = str(new_tracks.attrs["start_time"])
+    # Dropped attributes are attributes that differ between tracks so should be re-added
+    # as variables along the tracks dimension
+    # Get original attributes and convert to lists
+    attrs = [tr.attrs for tr in tracks]
+    keys = set([key for d in attrs for key in d])
+    for key in keys:
+        attrs_as_list = [d[key] if key in d else None for d in attrs]
+        new_tracks[key] = (["tracks"], attrs_as_list)
+
+    new_tracks = new_tracks.assign(FIRST_PT=first_point, NUM_PTS=num_pts)
 
     new_tracks.to_netcdf(filename)
 
