@@ -287,38 +287,38 @@ def rename_tracks(tracks, new_names):
 
 def load(fh, ex_cols=0, calendar=None):
     """
-    Reads model tropical storm tracking output from Reading Universities TRACK 
+    Reads model tropical storm tracking output from Reading Universities TRACK
     algorithm. Note: lat, lon, vorticity, maximum wind speed and minimum central
     pressure values are taken from the full resolution field, not T42. The lat/
-    lon values correspond to the location of maximum 850 hPa relative vorticity 
+    lon values correspond to the location of maximum 850 hPa relative vorticity
     (unless data are unavailable, in which case the original T42 resolution lat/
-    lon values are used). 
-    
-    If you have additional fields/columns after the full field vorticity, max 
-    wind and mslp data, then you need to count the number of columms these 
-    take up and set this as the ex_cols value (this value does not include 
-    &'s or comma's, just data). For example, for a file containing additional 
+    lon values are used).
+
+    If you have additional fields/columns after the full field vorticity, max
+    wind and mslp data, then you need to count the number of columms these
+    take up and set this as the ex_cols value (this value does not include
+    &'s or comma's, just data). For example, for a file containing additional
     10m wind information ex_cols=3 (lat, lon, 10m wind speed value).
-    
-    Note: if you are using model data which uses a 12 months x 30 daycalendar 
-    then you need to set calendar to 'netcdftime'. Default it to use gregorian 
+
+    Note: if you are using model data which uses a 12 months x 30 daycalendar
+    then you need to set calendar to 'netcdftime'. Default it to use gregorian
     calendar.
-   
+
 
     IMPORTANT NOTE:
     This funciton assumes that added fields are, in order, the full-field vorticity (7 levels),
     MSLP, 925hPa wind speed, and 10m wind speed.
- 
-    
+
+
     """
     # allow users to pass a filename instead of a file handle.
     if isinstance(fh, str):
         with open(fh, 'r') as fh:
             for data in load(fh, ex_cols=ex_cols, calendar=calendar):
                 yield data
-                
+
     else:
-        # for each line in the file handle            
+        # for each line in the file handle
         for line in fh:
             if line.startswith('TRACK_NUM'):
                 header_line = line.split()
@@ -350,27 +350,27 @@ def load(fh, ex_cols=0, calendar=None):
                 except:
                     _, snbr = line.split()
                 snbr =  int(snbr.strip())
-                
-                # Now get the number of observation records stored in the next line                
+
+                # Now get the number of observation records stored in the next line
                 next_line = next(fh)
                 if next_line.startswith('POINT_NUM'):
                     _, n_records = next_line.split()
                     n_records = int(n_records)
                 else:
                     raise ValueError('Unexpected line in TRACK output file.')
-                            
+
                 # Create a new observations list
                 storm_obs = []
-                
-                """ Read in the storm's observations """     
-                # For each observation record            
+
+                """ Read in the storm's observations """
+                # For each observation record
                 for _, obs_line in zip(list(range(n_records)), fh):
-                    
+
                     # Get each observation element
                     split_line = obs_line.strip().split('&')
                     storm_centre_record = split_line[0].split(' ')
 
-                    # Get observation date and T42 lat lon location in case higher 
+                    # Get observation date and T42 lat lon location in case higher
                     # resolution data are not available
                     date, tmp_lon, tmp_lat, vort = split_line[0].split()
                     date = parse_date(date, calendar)
@@ -386,7 +386,7 @@ def load(fh, ex_cols=0, calendar=None):
                     if mslp > 1.0e4:
                         mslp /= 100
                     mslp = float(round(mslp,1))
-                    
+
                     # Get full resolution 925hPa maximum wind speed (m/s)
                     vmax = float(split_line[1+(3*nlevels_t63)+3+2])
 
@@ -396,7 +396,7 @@ def load(fh, ex_cols=0, calendar=None):
 
                     # Also store vmax in knots (1 m/s = 1.944 kts) to match observations
                     vmax_kts = vmax * 1.944
-                    
+
                     # Get full resolution 850 hPa maximum vorticity (s-1)
                     vort = float(storm_centre_record[3])
                     #vort = float(split_line[::-1][nlevels_t63+2+ex_cols])
@@ -416,8 +416,8 @@ def load(fh, ex_cols=0, calendar=None):
                         v10m = float(split_line[::-1][1])
                         v10m_lat = float(split_line[::-1][2])
                         v10m_lon = float(split_line[::-1][3])
-     
-                    # If higher resolution lat/lon data is not available then use lat 
+
+                    # If higher resolution lat/lon data is not available then use lat
                     # lon from T42 resolution data
                     if lat == 1e12 or lon == 1e12 or lat == 1.0e25 or lon == 1.0e25:
                         lat = float(tmp_lat)
@@ -430,7 +430,7 @@ def load(fh, ex_cols=0, calendar=None):
                     else:
                         storm_obs.append(storm_assess.Observation(date, lat, lon, vort, vmax, mslp,
                                          extras={'vmax_kts':vmax_kts}))
-                    
+
                 # Yield storm
                 yield storm_assess.Storm(snbr, storm_obs, extras={})
 
@@ -687,6 +687,40 @@ def load_hurdat2(fh, ex_cols=0, calendar=None):
 
                 # Yield storm
                 yield storm_assess.Storm(snbr, storm_obs, extras={})
+
+
+def write(storms, file_name):
+    """Write the storms to a text file using the TRACK layout
+
+    Args:
+        storms (list of storm_assess.Storm): Storm objects as loaded in by :func:`load`
+        file_name (str):
+    """
+    tr_count = len(storms)
+    extras = storms[-1].obs[0].extras.keys()
+    number_fields = 2 + len(extras)
+    with open(file_name, "w") as file_object:
+        # Write the file header
+        file_object.write("0\n")
+        # The lines in the middle of the "0" and "0 0" can contain any extra information
+        # so I'm adding in the names of variables
+        file_object.write(f"ADDED_FIELDS: vmax MSLP {' '.join(extras)}\n")
+        file_object.write("0 0\n")
+        file_object.write(f"TRACK_NUM {tr_count} ADD_FLD {number_fields} {number_fields} &{'0' * number_fields}\n")
+        for i, storm in enumerate(storms):
+            # Write the storm header
+            date = storm.genesis_date().strftime("%Y%m%d%H")
+            num = storm.nrecords()
+            file_object.write(f"TRACK_ID {storm.snbr} START_TIME {date}\n")
+            file_object.write(f"POINT_NUM  {num}\n")
+            # Write each line of observations for the storm
+            for ob in storm.obs:
+                date = ob.date.strftime("%Y%m%d%H")
+                line_to_write = f"{date} {ob.lon} {ob.lat} {ob.vort} & {ob.vmax} & {ob.mslp} & "
+                if number_fields > 2:
+                    line_to_write += " &".join([str(ob.extras[key]) for key in extras])
+                    line_to_write += " & "
+                file_object.write(line_to_write + "\n")
 
 
 def parse_date(date, calendar=None):
