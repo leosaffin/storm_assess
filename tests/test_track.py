@@ -1,14 +1,16 @@
 import pathlib
 
 import cftime
+import pytest
 
 import storm_assess
 from storm_assess import track
 
 
-def test_load():
+@pytest.mark.parametrize("load_function", [track.load, track.load_hurdat2])
+def test_load(load_function):
     storms = list(
-        track.load(storm_assess.SAMPLE_TRACK_DATA, ex_cols=3, calendar="netcdftime")
+        load_function(storm_assess.SAMPLE_TRACK_DATA, ex_cols=3, calendar="netcdftime")
     )
 
     assert len(storms) == 540
