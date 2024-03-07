@@ -158,18 +158,3 @@ def load(fh, ex_cols=0, calendar=None):
                     
                 # Yield storm
                 yield storm_assess.Storm(snbr, storm_obs, extras={})
-
-
-if __name__ == '__main__':
-    fname = storm_assess.SAMPLE_TRACK_DATA
-    print('Loading TRACK data from file:' , fname)
-    storms = list(load(fname, ex_cols=3, calendar='netcdftime'))
-    print('Number of model storms: ', len(storms))
-    
-    # Print storm details:
-    for storm in storms: 
-        #print storm.snbr, storm.genesis_date()
-        for ob in storm.obs:
-            print(ob.date, ob.lon, ob.lat, ob.vmax, ob.extras['vmax_kts'], ob.mslp, ob.vort)
-    print('Number of model storms: ', len(storms)) 
-
