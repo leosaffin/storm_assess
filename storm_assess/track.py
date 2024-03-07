@@ -61,7 +61,11 @@ def load_netcdf(filename):
     # variables first
     # e.g. ds.sel(record=slice(0, 10)) gives an dataset with 11 records rather than 10
     # I think it matches the numbers rather than the index so includes 10 as a match
-    ds = ds.drop_vars(names=["tracks", "record"])
+    to_drop = []
+    for name in ["tracks", "record"]:
+        if name in ds:
+            to_drop.append(name)
+    ds = ds.drop_vars(names=to_drop)
 
     output = []
     for n, (idx0, npoints) in enumerate(zip(ds.FIRST_PT.data, ds.NUM_PTS.data)):
