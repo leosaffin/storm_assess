@@ -1,0 +1,10 @@
+name: irise
+channels:
+  - conda-forge
+dependencies:
+  - sphinx
+  - sphinx_rtd_theme
+  - iris
+  - geopandas
+  - pip:
+      - haversine
