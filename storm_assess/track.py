@@ -354,15 +354,13 @@ def load(fh, ex_cols=0, calendar=None):
                     number_fields = int(header_line[3])
                 else:
                     raise ValueError('Unexpected line in TRACK output file.')
-                # if no of fields is 9 then we have the mslp and wind, and ex_cols=3, else not
-                #nlevels_t63 = number_fields - 4
-                #if number_fields == 7 or number_fields == 9:
-                #    ex_cols = 3
+                # if no of fields is 9 then we have the mslp and wind, and ex_cols=3,
+                # else not
                 if number_fields == 9:
                     ex_cols = 6
                 else:
-                    print('using ex_cols value ',ex_cols)
-                    #ex_cols = 0
+                    print('using ex_cols value ', ex_cols)
+
                 # if no 10m wind, then only 2 extra fields
                 if ex_cols == 3:
                     nlevels_t63 = number_fields - 2 - 1
@@ -375,9 +373,9 @@ def load(fh, ex_cols=0, calendar=None):
                 # This is a new storm. Store the storm number.
                 try:
                     _, snbr, _, _ = line.split()
-                except:
+                except ValueError:
                     _, snbr = line.split()
-                snbr =  int(snbr.strip())
+                snbr = int(snbr.strip())
 
                 # Now get the number of observation records stored in the next line
                 next_line = next(fh)
@@ -404,8 +402,6 @@ def load(fh, ex_cols=0, calendar=None):
                     date = parse_date(date, calendar)
 
                     # Get storm location of maximum vorticity (full resolution field)
-                    #lat = float(split_line[::-1][8+ex_cols])
-                    #lon = float(split_line[::-1][9+ex_cols])
                     lat = float(storm_centre_record[2])
                     lon = float(storm_centre_record[1])
 
@@ -413,31 +409,20 @@ def load(fh, ex_cols=0, calendar=None):
                     mslp = float(split_line[1+(3*nlevels_t63)+2])
                     if mslp > 1.0e4:
                         mslp /= 100
-                    mslp = float(round(mslp,1))
+                    mslp = float(round(mslp, 1))
 
                     # Get full resolution 925hPa maximum wind speed (m/s)
                     vmax = float(split_line[1+(3*nlevels_t63)+3+2])
 
                     # Check for mslp-vmax mix-up
                     if mslp < 500 and vmax > 500:
-                        mslp,vmax = vmax,mslp
+                        mslp, vmax = vmax, mslp
 
                     # Also store vmax in knots (1 m/s = 1.944 kts) to match observations
                     vmax_kts = vmax * 1.944
 
                     # Get full resolution 850 hPa maximum vorticity (s-1)
                     vort = float(storm_centre_record[3])
-                    #vort = float(split_line[::-1][nlevels_t63+2+ex_cols])
-                    #vort_idx = (nlevels_t63+2)*3
-                    #vort = float(split_line[vort_idx])
-
-                    # Get T63 vorticity
-                    #t63_1 = float(split_line[::-1][(number_fields-2)*3+ex_cols+1])
-                    #t63_2 = float(split_line[::-1][(number_fields-3)*3+ex_cols+1])
-                    #t63_3 = float(split_line[::-1][(number_fields-4)*3+ex_cols+1])
-                    #t63_4 = float(split_line[::-1][(number_fields-5)*3+ex_cols+1])
-                    #t63_5 = float(split_line[::-1][(number_fields-nlevels_t63-1)*3+ex_cols+1])
-                    #t63_diff = (t63_1 - t63_5)
 
                     # Get 10m wind speed
                     if ex_cols > 6:
@@ -453,11 +438,18 @@ def load(fh, ex_cols=0, calendar=None):
 
                     # Store observations
                     if ex_cols > 6:
-                        storm_obs.append(storm_assess.Observation(date, lat, lon, vort, vmax, mslp,
-                                         extras={'vmax_kts':vmax_kts,'v10m_lon':v10m_lon,'v10m_lat':v10m_lat,'v10m':v10m}))
+                        storm_obs.append(storm_assess.Observation(
+                            date, lat, lon, vort, vmax, mslp, extras={
+                                'vmax_kts': vmax_kts, 'v10m_lon': v10m_lon,
+                                'v10m_lat': v10m_lat, 'v10m': v10m
+                            }
+                        ))
                     else:
-                        storm_obs.append(storm_assess.Observation(date, lat, lon, vort, vmax, mslp,
-                                         extras={'vmax_kts':vmax_kts}))
+                        storm_obs.append(storm_assess.Observation(
+                            date, lat, lon, vort, vmax, mslp, extras={
+                                'vmax_kts': vmax_kts
+                            }
+                        ))
 
                 # Yield storm
                 yield storm_assess.Storm(snbr, storm_obs, extras={})
@@ -511,24 +503,15 @@ def load_hart(fh, ex_cols=0, calendar=None):
         for line in fh:
             if line.startswith('TRACK_NUM'):
                 split_line = line.split()
-                if split_line[2] == 'ADD_FLD':
-                    number_fields = int(split_line[3])
-                else:
+                if split_line[2] != 'ADD_FLD':
                     raise ValueError('Unexpected line in TRACK output file.')
-                # assume 7-level full-field vorticity,mslp,vmax,mslp,v10m,TL,TU,B
-                if number_fields == 13:
-                    ex_cols = 0
-                    nlevels_T63 = 7
-                else:
-                    print(('using ex_cols = ', ex_cols))
-                    nlevels_T63 = number_fields - 3
 
             # read storms
             if line.startswith('TRACK_ID'):
                 # new storm: store the storm number
                 try:
                     _, snbr, _, _ = line.split()
-                except:
+                except ValueError:
                     _, snbr = line.split()
                 snbr = int(snbr.strip())
                 # get the number of observation records stored in the next line
@@ -556,33 +539,10 @@ def load_hart(fh, ex_cols=0, calendar=None):
 
                     # get full resolution 850 hPa maximum vorticity (s-1)
                     vort = float(vort)
-                    # vort = float(storm_centre_record[3])
-                    # vort = float(split_line[::-1][nlevels_T63+2+ex_cols])
-                    # vort_idx = (nlevels_T63+2)*3
-                    # vort = float(split_line[vort_idx])
 
                     # get storm location of maximum vorticity (full resolution field)
-                    # lat = float(split_line[::-1][8+ex_cols])
-                    # lon = float(split_line[::-1][9+ex_cols])
-                    # storm_centre_record = split_line[0].split(' ')
                     lat = float(lat)
                     lon = float(lon)
-
-                    # if higher resolution lat/lon data is not available then use lat
-                    # lon from T42 resolution data
-                    # if lat == 1e12 or lon == 1e12 or lat == 1.0e25 or lon == 1.0e25:
-                    #    lat = float(tmp_lat)
-                    #    lon = float(tmp_lon)
-
-                    # get T63 vorticity
-                    T63_1 = float(split_line[1 * 3])
-                    T63_2 = float(split_line[2 * 3])
-                    T63_3 = float(split_line[3 * 3])
-                    T63_4 = float(split_line[4 * 3])
-                    T63_5 = float(split_line[5 * 3])
-                    T63_6 = float(split_line[6 * 3])
-                    T63_7 = float(split_line[7 * 3])
-                    T63_diff = (T63_1 - T63_7)
 
                     # get full resolution mslp
                     mslp = float(split_line[8 * 3])
@@ -611,10 +571,11 @@ def load_hart(fh, ex_cols=0, calendar=None):
                     B = float(split_line[::-1][1])
 
                     # store observations
-                    storm_obs.append(storm_assess.Observation(date, lat, lon, vort, vmax, mslp,
-                                                              extras={'vmax_kts': vmax_kts, 'v10m': v10m,
-                                                                      'v10m_lat': v10m_lat, 'v10m_lon': v10m_lon,
-                                                                      'TL': TL, 'TU': TU, 'B': B}))
+                    storm_obs.append(storm_assess.Observation(
+                        date, lat, lon, vort, vmax, mslp, extras={
+                            'vmax_kts': vmax_kts, 'v10m': v10m, 'v10m_lat': v10m_lat,
+                            'v10m_lon': v10m_lon, 'TL': TL, 'TU': TU, 'B': B
+                        }))
 
                 # Yield storm
                 yield storm_assess.Storm(snbr, storm_obs, extras={})
@@ -648,16 +609,14 @@ def load_hurdat2(fh, ex_cols=0, calendar=None):
         for line in fh:
             if line.startswith('TRACK_NUM'):
                 split_line = line.split()
-                if split_line[2] == 'ADD_FLD':
-                    number_fields = int(split_line[3])
-                else:
+                if split_line[2] != 'ADD_FLD':
                     raise ValueError('Unexpected line in TRACK output file.')
 
             if line.startswith('TRACK_ID'):
                 # This is a new storm. Store the storm number.
                 try:
                     _, snbr, _, _ = line.split()
-                except:
+                except ValueError:
                     _, snbr = line.split()
                 snbr = int(snbr.strip())
 
@@ -710,8 +669,11 @@ def load_hurdat2(fh, ex_cols=0, calendar=None):
                     v10m = float(split_line[::-1][7 + ex_cols])
 
                     # Store observations
-                    storm_obs.append(storm_assess.Observation(date, lat, lon, vort, vmax, mslp,
-                                                              extras={'vmax_kts': vmax_kts, 'v10m': v10m}))
+                    storm_obs.append(storm_assess.Observation(
+                        date, lat, lon, vort, vmax, mslp, extras={
+                            'vmax_kts': vmax_kts, 'v10m': v10m
+                        }
+                    ))
 
                 # Yield storm
                 yield storm_assess.Storm(snbr, storm_obs, extras={})
