@@ -1,10 +1,10 @@
-name: irise
+name: storm_assess
 channels:
   - conda-forge
 dependencies:
   - sphinx
   - sphinx_rtd_theme
-  - sphinx_copybutton
+  - sphinx-copybutton
   - nbsphinx
   - iris
   - geopandas
