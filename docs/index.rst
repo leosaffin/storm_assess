@@ -15,6 +15,7 @@ Storm Assess
    plot
    regions
    functions
+   examples
 
 
 Indices and tables

@@ -4,6 +4,8 @@ channels:
 dependencies:
   - sphinx
   - sphinx_rtd_theme
+  - sphinx_copybutton
+  - nbsphinx
   - iris
   - geopandas
   - pip:

@@ -20,6 +20,8 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "nbsphinx",
+    "sphinx_copybutton",
 ]
 
 autodoc_default_options = {
@@ -34,7 +36,8 @@ intersphinx_mapping = {
     'matplotlib': ('https://matplotlib.org/stable/', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/', None),
     'iris': ('https://scitools-iris.readthedocs.io/en/stable/', None),
-    'cartopy': ('https://scitools.org.uk/cartopy/docs/latest', None)
+    'cartopy': ('https://scitools.org.uk/cartopy/docs/latest', None),
+    'xarray': ("https://docs.xarray.dev/en/latest/", None),
 }
 
 templates_path = ['_templates']
