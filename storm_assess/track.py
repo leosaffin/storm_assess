@@ -146,7 +146,7 @@ def save_netcdf(tracks, filename):
     new_tracks.to_netcdf(filename)
 
 
-def load_no_assumptions(filename, calendar=None, variable_names=None):
+def load_no_assumptions(filename, calendar=None, variable_names=None, output_type="xarray"):
     """Load track data as xarray Datasets with generic names for added variables
 
     Args:
@@ -155,6 +155,9 @@ def load_no_assumptions(filename, calendar=None, variable_names=None):
         variable_names(list, optional): A list of the names of additional variables
             present in the file. If None, the variables will be named as variable_n, and
             associated coordinates as variable_n_latitude/variable_n_longitude
+        output_type (str, optional): The Object used to represent the storms in the
+            returned list. Either "storm" for :class:`storm_assess.Storm` or xarray for
+            :class:`xarray.Dataset`. Default is "xarray"
 
     Returns:
         list:
@@ -233,12 +236,37 @@ def load_no_assumptions(filename, calendar=None, variable_names=None):
                 for i, label in enumerate(var_labels[3:]):
                     track_data[label][1][m] = float(line[i+1])
 
-            # Return a dataset for the individual track
-            output.append(xarray.Dataset(
-                track_data,
-                coords=dict(time=times),
-                attrs=track_info,
-            ))
+            if output_type == "xarray":
+                # Return a dataset for the individual track
+                output.append(xarray.Dataset(
+                    track_data,
+                    coords=dict(time=times),
+                    attrs=track_info,
+                ))
+            elif output_type == "storm":
+                # Add all extra columns to the extras dictionary for now and set vmax
+                # mslp as NaN.
+                # TODO - Implement renamed_tracks for Storm objects so that vmax and
+                # mslp can be properly added to the data
+                output.append(storm_assess.Storm(
+                    snbr=track_info["track_id"],
+                    obs=[
+                        storm_assess.Observation(
+                            date=times[i],
+                            lat=track_data["latitude"][1][i],
+                            lon=track_data["longitude"][1][i],
+                            vort=track_data["vorticity"][1][i],
+                            vmax=np.nan,
+                            mslp=np.nan,
+                            extras={
+                                key: track_data[key][1][i] for key in track_data.keys()
+                                if key not in ["latitude", "longitude", "vorticity"]
+                            },
+                        )
+                        for i in range(npoints)
+                    ]
+
+                ))
 
     if variable_names is not None:
         return rename_tracks(output, variable_names)

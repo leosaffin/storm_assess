@@ -60,6 +60,28 @@ def test_load_no_assumptions(storms_xarray):
     assert storms_xarray[-1].v10m[-1] == 1.000000e+12
 
 
+def test_load_no_assumptions_storm():
+    storms = track.load_no_assumptions(
+        storm_assess.SAMPLE_TRACK_DATA, calendar="netcdftime", output_type="storm"
+    )
+    # Check first and last points are correct
+    assert len(storms[0]) == 85
+    assert storms[0].obs[0].date == cftime.datetime(2000, 5, 6, calendar="360_day")
+    assert storms[0].obs[0].lon == 285.375793
+    assert storms[0].obs[0].lat == 22.385307
+    assert storms[0].obs[0].vort == 1.569625e00
+    # assert storms[0].obs[0].vmax == 9.860207e+00
+    # assert storms[0].obs[0].mslp == float(round(1.016622e05 / 100, 1))
+
+    assert len(storms[-1]) == 30
+    assert storms[-1].obs[-1].date == cftime.datetime(2011, 11, 21, 6, calendar="360_day")
+    assert storms[-1].obs[-1].lon == 276.124756
+    assert storms[-1].obs[-1].lat == 12.903164
+    assert storms[-1].obs[-1].vort == 3.415816e00
+    # assert storms[-1].obs[-1].vmax == 1.000000e+12
+    # assert storms[-1].obs[-1].mslp == float(round(1.008229e05 / 100, 1))
+
+
 def test_save_netcdf(storms_xarray):
     track.save_netcdf(storms_xarray, "test.nc")
 
